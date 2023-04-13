@@ -60,7 +60,18 @@ static TEXT2MORA_WITH_UNVOICE: Lazy<HashMap<String, MoraModel>> = Lazy::new(|| {
 });
 
 fn text_to_accent_phrase(phrase: &str) -> KanaParseResult<AccentPhraseModel> {
+    /* メモ: @hiroyaiyori 
+        accent_phraseを解析して、AccentPhraseModelを返す。
+    */
+
+    /* メモ: @hiroyaiyori 
+        引数で受け取ったアクセントフレーズのテキストを文字のベクターに変換します。 
+    */
     let phrase_vec: Vec<char> = phrase.chars().collect();
+
+    /* メモ: @hiroyaiyori 
+         アクセント位置を表すオプション変数を定義し、初期値はNoneに設定します
+    */
     let mut accent_index: Option<usize> = None;
     let mut moras: Vec<MoraModel> = Vec::new();
     let mut stack = String::new();
@@ -68,6 +79,9 @@ fn text_to_accent_phrase(phrase: &str) -> KanaParseResult<AccentPhraseModel> {
     let text2mora = &TEXT2MORA_WITH_UNVOICE;
     let mut index = 0;
     let mut loop_count = 0;
+    /* メモ: @hiroyaiyori 
+        一文字ずつ見ていき、アクセント記号があれば、アクセント位置を設定します。 
+    */
     while index < phrase_vec.len() {
         loop_count += 1;
         let letter = phrase_vec[index];
@@ -82,20 +96,38 @@ fn text_to_accent_phrase(phrase: &str) -> KanaParseResult<AccentPhraseModel> {
                     "second accent cannot be set at an accent phrase: {phrase}"
                 )));
             }
+            /* メモ: @hiroyaiyori 
+                アクセント記号の位置に accent_index を設定。 
+            */
             accent_index = Some(moras.len());
             index += 1;
             continue;
         }
 
+        /* メモ: @hiroyaiyori 
+           現在のインデックスから最後までの文字を順番に取得します。
+        */
         for &watch_letter in &phrase_vec[index..] {
+            /* メモ: @hiroyaiyori 
+                取得した文字がアクセント記号の場合、ループを抜けます。
+            */
             if watch_letter == ACCENT_SYMBOL {
                 break;
             }
             stack.push(watch_letter);
+
+            /* メモ: @hiroyaiyori 
+                stackがtext2moraマップに含まれるキーである場合、matched_textにstackのクローンをセット
+            */
             if text2mora.contains_key(&stack) {
                 matched_text = Some(stack.clone());
             }
         }
+
+        /* メモ: @hiroyaiyori 
+            matched_textが代入されている場合、matched_textの文字数分インデックスを進め、morasにtext2moraの値を追加
+            stackをクリア 
+        */
         if let Some(matched_text) = matched_text.take() {
             index += matched_text.chars().count();
             moras.push(text2mora.get(&matched_text).unwrap().clone());
@@ -123,18 +155,47 @@ fn text_to_accent_phrase(phrase: &str) -> KanaParseResult<AccentPhraseModel> {
 }
 
 pub fn parse_kana(text: &str) -> KanaParseResult<Vec<AccentPhraseModel>> {
+    /* メモ: @hiroyaiyori 
+        kana optionがTrueの時に、この関数にtextを通して、accent_phraseのリストを返す。 
+    */
+
+    /* メモ: @hiroyaiyori 
+         TERMINATORという名前で、ヌル文字（'\0'）を定数として定義しています。これは、テキストの終端を示すために使用されます。
+    */
     const TERMINATOR: char = '\0';
+
+    /* メモ: @hiroyaiyori 
+        parsed_resultという名前の可変ベクターを初期化しています。このベクターには、解析されたアクセントフレーズが追加されます。 
+    */
     let mut parsed_result = Vec::new();
+
+    /* メモ: @hiroyaiyori 
+        テキストの文字列を1文字ずつ取得し、終端記号を連結して、イテレータを作成しています。 
+    */
     let chars_of_text = text.chars().chain([TERMINATOR]);
+
+    /* メモ: @hiroyaiyori 
+         phraseという名前の可変文字列を初期化しています。二つのPAUSE_DELIMITERまたはNOPAUSE_DELIMITERの間の文字列。
+    */
     let mut phrase = String::new();
+
     for letter in chars_of_text {
+        /* メモ: @hiroyaiyori 
+            現在の文字が終端記号、アクセントフレーズの区切り文字（PAUSE_DELIMITER）またはアクセントフレーズの区切り文字でない場合（NOPAUSE_DELIMITER）のいずれかであるかどうかをチェックします。 
+        */
         if letter == TERMINATOR || letter == PAUSE_DELIMITER || letter == NOPAUSE_DELIMITER {
+            /* メモ: @hiroyaiyori 
+                 保持しているフレーズが空であるかどうかをチェックします。空の場合は、エラーを返します。
+            */
             if phrase.is_empty() {
                 return Err(KanaParseError(format!(
                     "accent phrase at position of {} is empty",
                     parsed_result.len()
                 )));
             }
+            /* メモ: @hiroyaiyori 
+                 保持しているフレーズが疑問符を含むかどうかをチェックし、その結果をis_interrogativeに格納します
+            */
             let is_interrogative = phrase.contains(WIDE_INTERROGATION_MARK);
             if is_interrogative {
                 if phrase.find(WIDE_INTERROGATION_MARK).unwrap()
@@ -146,6 +207,10 @@ pub fn parse_kana(text: &str) -> KanaParseResult<Vec<AccentPhraseModel>> {
                 }
                 phrase.pop(); // remove WIDE_INTERROGATION_MARK
             }
+
+            /* メモ: @hiroyaiyori 
+                フレーズをtext_to_accent_phrase関数に渡して、アクセントフレーズを取得し、適切な休止モーラを設定します。また、フレーズが疑問文であるかどうかを設定します。 
+            */
             let accent_phrase = {
                 let mut accent_phrase = text_to_accent_phrase(&phrase)?;
                 if letter == PAUSE_DELIMITER {
@@ -161,9 +226,19 @@ pub fn parse_kana(text: &str) -> KanaParseResult<Vec<AccentPhraseModel>> {
                 accent_phrase.set_is_interrogative(is_interrogative);
                 accent_phrase
             };
+            /* メモ: @hiroyaiyori 
+                解析されたアクセントフレーズをparsed_resultベクターに追加します。 
+            */
             parsed_result.push(accent_phrase);
+
+            /* メモ: @hiroyaiyori 
+                一時的に使用されたphrase文字列をクリアして、次のアクセントフレーズの解析に備えます。 
+            */
             phrase.clear();
         } else {
+            /* メモ: @hiroyaiyori 
+                 現在の文字をphraseに追加します。
+            */
             phrase.push(letter);
         }
     }

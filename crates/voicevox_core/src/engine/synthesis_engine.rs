@@ -39,10 +39,20 @@ impl SynthesisEngine {
         text: impl AsRef<str>,
         speaker_id: u32,
     ) -> Result<Vec<AccentPhraseModel>> {
+        /* メモ: @hiroyaiyori 
+             与えられたテキストと話者IDをもとに、Vec<AccentPhraseModel>を作成する。
+        */
+
+        /* メモ: @hiroyaiyori 
+            テキストが空の場合は、空のVecを返す。
+        */
         if text.as_ref().is_empty() {
             return Ok(Vec::new());
         }
 
+        /* メモ: @hiroyaiyori 
+            Utteranceオブジェクトを作成するために、extract_full_context_label関数を使ってテキストから音声ラベルを抽出する。  
+        */
         let utterance = Utterance::extract_full_context_label(&mut self.open_jtalk, text.as_ref())?;
 
         let accent_phrases: Vec<AccentPhraseModel> = utterance

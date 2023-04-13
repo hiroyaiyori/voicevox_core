@@ -157,6 +157,10 @@ impl VoicevoxCore {
         )
     }
 
+    /* メモ: @hiroyaiyori 
+        First main function of voicevox_core. 
+        後で音声合成するための情報AudioQueryを生成します。
+    */
     pub fn audio_query(
         &mut self,
         text: &str,
@@ -166,7 +170,15 @@ impl VoicevoxCore {
         if !self.synthesis_engine.is_openjtalk_dict_loaded() {
             return Err(Error::NotLoadedOpenjtalkDict);
         }
+        /* メモ: @hiroyaiyori 
+        * ここで、音素列を生成しています。 options.kana が true の場合は、
+        * 既にtextでkanaが与えられているので、そのまま使います。
+        * そうでない場合は、テキストを音素列に変換します。
+        */
         let accent_phrases = if options.kana {
+            /* メモ: @hiroyaiyori 
+                accent_phrasesをspeaker_idに合わせて置き換える。 
+            */
             self.synthesis_engine
                 .replace_mora_data(&parse_kana(text)?, speaker_id)?
         } else {
@@ -174,6 +186,9 @@ impl VoicevoxCore {
                 .create_accent_phrases(text, speaker_id)?
         };
 
+        /* メモ: @hiroyaiyori 
+        * ここで、音素列からカナを生成しています。 
+        */
         let kana = create_kana(&accent_phrases);
 
         Ok(AudioQueryModel::new(
@@ -190,6 +205,10 @@ impl VoicevoxCore {
         ))
     }
 
+/* メモ: @hiroyaiyori 
+    Second main function of voicevox_core. 
+    AudioQueryをもとに音声合成を行います。
+*/
     pub fn synthesis(
         &mut self,
         audio_query: &AudioQueryModel,
